@@ -19,7 +19,7 @@ class Server():
         # Initialize list for files that need to be uploaded across all servers
         self.upload_queue = []
         self.files_list = []
-        # self.get_files_list()
+        self.get_files_list()
         # print(self.files_list)
 
         # Create server socket and bind address and port
@@ -65,7 +65,7 @@ class Server():
 
                 except Exception as e:
                     print(e)
-                    for port in self.SERVER_PEERS:
+                    for port in self.server_sockets:
                         port.close()
             else:
                 self.synchronize_servers()
@@ -88,15 +88,21 @@ class Server():
     def upload(self, client_socket, address, filename):
         print(f"[*] Receiving {filename} from {address}.")
         try:
-            if client_socket not in self.server_sockets:
-                self.upload_queue.append(filename)
+            data = b''
 
             with open(self.SERVER_NAME + "/" + filename, "wb") as f:
                 while True:
                     bytes_read = client_socket.recv(self.BUFFER_SIZE)
+                    data += bytes_read
                     if not bytes_read:
                         break
                     f.write(bytes_read)
+
+            if self.check(self.files_list, "checksum", hashlib.md5(data).hexdigest()):
+                pass
+            else:
+                self.files_list.append({"filename" : filename, "checksum" : hashlib.md5(data).hexdigest()})
+                self.upload_queue.append(filename)
 
         except Exception as e:
             print(e)
@@ -118,7 +124,6 @@ class Server():
                         peer.close()
                     self.upload_queue.remove(filename)
                     print("[*] Re-establishing connection with slaves...")
-                    self.server_sockets = []
         except Exception as e:
             print(e)
             pass
@@ -128,7 +133,7 @@ class Server():
             for file in files:
                 data = open(self.SERVER_NAME + "/" + file, "rb").read()
                 self.files_list.append({"filename" : file, "checksum" : hashlib.md5(data).hexdigest()})
-                self.upload_queue.append(file)
+                # self.upload_queue.append(file)
 
     def on_new_client(self, client_socket, address):
         while True:
@@ -146,3 +151,12 @@ class Server():
 
                 elif parsed["command"] == "exit":
                     client_socket.close()
+
+    def check(self, data, key, value):
+        for i in data:
+            try:
+                if(i[key]==value):
+                    return True
+            except:
+                pass
+        return False
