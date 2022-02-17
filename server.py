@@ -114,7 +114,6 @@ class Server():
     def on_new_client(self, client_socket, address):
         while True:
             message = client_socket.recv(self.BUFFER_SIZE).decode('utf-8')
-            time.sleep(1)
             if message:
                 parsed = json.loads(message)
                 print(str(parsed))
