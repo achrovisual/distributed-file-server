@@ -1,5 +1,6 @@
 import socket, sys, os, json, time, hashlib
 from _thread import *
+# os.environ["PYTHONHASHSEED"] = '1234' # Not needed for local
 
 class Server():
     def __init__(self, name, port, peers):
@@ -27,6 +28,11 @@ class Server():
         server_socket.bind((SERVER_HOST, SERVER_PORT))
         server_socket.listen(5)
         print(f"[*] {self.SERVER_NAME} server listening as {SERVER_HOST}:{SERVER_PORT}.")
+
+        # Create server file directory
+        if not os.path.exists(self.SERVER_NAME):
+            print(f"[*] Server file directory created ({os.getcwd()}/{self.SERVER_NAME})")
+            os.mkdir(self.SERVER_NAME)
 
         # Start a new thread the connects to server peers
         start_new_thread(self.connect_to_slaves, ())
@@ -74,8 +80,6 @@ class Server():
     def download(self, client_socket, address, filename):
         print(f"[*] Sending {filename} to {address}.")
         try:
-            filesize = os.path.getsize(self.SERVER_NAME + "/" + filename)
-
             with open(self.SERVER_NAME + "/" + filename, "rb") as f:
                 while True:
                     bytes_read = f.read(self.BUFFER_SIZE)
@@ -85,31 +89,38 @@ class Server():
         except:
             print("[!] File not found.")
 
-    def upload(self, client_socket, address, filename):
+    def upload(self, client_socket, address, filename, checksum=None):
         print(f"[*] Receiving {filename} from {address}.")
         try:
-            data = None
-
-            with open(self.SERVER_NAME + "/" + filename, "wb") as f:
-                while True:
-                    bytes_read = client_socket.recv(self.BUFFER_SIZE)
-                    if data:
-                        data += bytes_read
-                    else:
-                        data = bytes_read
-                    if not bytes_read:
-                        break
-                    f.write(bytes_read)
-
-
-            if self.check(self.files_list, "checksum", hashlib.md5(data).hexdigest()):
+            if self.check(self.files_list, "checksum", checksum):
+                print("[!] File already exists in the server.")
+                print("[-] Aborting download.")
+                msg = {"command" : "nack"}
+                client_socket.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
                 pass
             else:
-                self.files_list.append({"filename" : filename, "checksum" : hashlib.md5(data).hexdigest()})
-                self.upload_queue.append(filename)
+                print("[*] File transfer started")
+                # data = None
+
+                msg = {"command" : "ack"}
+                client_socket.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+
+                with open(self.SERVER_NAME + "/" + filename, "wb") as f:
+                    while True:
+                        bytes_read = client_socket.recv(self.BUFFER_SIZE)
+                        # if data:
+                        #     data += bytes_read
+                        # else:
+                        #     data = bytes_read
+                        if not bytes_read:
+                            break
+                        f.write(bytes_read)
+
+                self.files_list.append({"filename" : filename, "checksum" : checksum})
+                self.upload_queue.append({"filename" : filename, "checksum" : checksum})
 
             print(self.files_list)
-            print(hashlib.md5(data).hexdigest())
+            print(checksum)
 
         except Exception as e:
             print(e)
@@ -119,18 +130,31 @@ class Server():
         # print(self.upload_queue)
         try:
             if self.upload_queue:
-                for filename in self.upload_queue:
+                for file in self.upload_queue:
                     print("[*] New file was uploaded. Synchronizing servers.")
                     for peer in self.server_sockets:
-                        filesize = os.path.getsize(self.SERVER_NAME + "/" + filename)
-                        msg = {"command" : "upload", "filename" : filename, "filesize" : filesize}
+
+                        msg = {"command" : "upload", "filename" : file["filename"], "checksum" : file["checksum"]}
 
                         peer.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
 
-                        self.download(peer, "127.0.0.1", filename)
+                        while True:
+                            message = peer.recv(self.BUFFER_SIZE).decode("utf-8")
+                            if message:
+                                parsed = json.loads(message)
+                                print(str(parsed))
+                                if parsed["command"] == "ack":
+                                    self.download(peer, "127.0.0.1", file["filename"])
+                                    break
+
+                                elif parsed["command"] == "nack":
+                                    print(f"[-] File already exists for {peer}.")
+                                    break
+
                         peer.close()
-                    self.upload_queue.remove(filename)
+                    self.upload_queue.remove(file)
                     print("[*] Re-establishing connection with slaves...")
+                    self.server_sockets = []
         except Exception as e:
             print(e)
             pass
@@ -154,7 +178,8 @@ class Server():
 
                 elif parsed["command"] == "upload":
                     filename = parsed["filename"]
-                    self.upload(client_socket, address, filename)
+                    checksum = parsed["checksum"]
+                    self.upload(client_socket, address, filename, checksum)
 
                 elif parsed["command"] == "exit":
                     client_socket.close()
@@ -162,7 +187,10 @@ class Server():
     def check(self, data, key, value):
         for i in data:
             try:
+                # print(i[key])
+                # print(value)
                 if(i[key]==value):
+                    # print('pass')
                     return True
             except:
                 pass
