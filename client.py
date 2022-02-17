@@ -1,5 +1,4 @@
 import socket
-import tqdm
 import os
 import json
 import sys
@@ -29,7 +28,7 @@ try:
                     msg = {"command" : data[0], "filename" : data[1], "filesize" : filesize}
 
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
-
+                    time.sleep(2)
                     with open(msg["filename"], "rb") as f:
                         while True:
                             bytes_read = f.read(BUFFER_SIZE)
