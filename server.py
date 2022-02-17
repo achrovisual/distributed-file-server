@@ -20,7 +20,7 @@ class Server():
         self.upload_queue = []
         self.files_list = []
         self.get_files_list()
-        # print(self.files_list)
+        print(self.files_list)
 
         # Create server socket and bind address and port
         server_socket = socket.socket()
@@ -88,21 +88,28 @@ class Server():
     def upload(self, client_socket, address, filename):
         print(f"[*] Receiving {filename} from {address}.")
         try:
-            data = b''
+            data = None
 
             with open(self.SERVER_NAME + "/" + filename, "wb") as f:
                 while True:
                     bytes_read = client_socket.recv(self.BUFFER_SIZE)
-                    data += bytes_read
+                    if data:
+                        data += bytes_read
+                    else:
+                        data = bytes_read
                     if not bytes_read:
                         break
                     f.write(bytes_read)
+
 
             if self.check(self.files_list, "checksum", hashlib.md5(data).hexdigest()):
                 pass
             else:
                 self.files_list.append({"filename" : filename, "checksum" : hashlib.md5(data).hexdigest()})
                 self.upload_queue.append(filename)
+
+            print(self.files_list)
+            print(hashlib.md5(data).hexdigest())
 
         except Exception as e:
             print(e)
