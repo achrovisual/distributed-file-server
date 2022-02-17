@@ -18,6 +18,10 @@ class Server():
 
         # Initialize list for files that need to be uploaded across all servers
         self.upload_queue = []
+        path = "./" + name
+
+        if not os.path.exists(path):
+            os.mkdir(path)
 
         # Create server socket and bind address and port
         server_socket = socket.socket()
@@ -113,7 +117,7 @@ class Server():
 
     def on_new_client(self, client_socket, address):
         while True:
-            message = client_socket.recv(self.BUFFER_SIZE).decode('utf-8')
+            message = client_socket.recv(self.BUFFER_SIZE)
             if message:
                 parsed = json.loads(message)
                 print(str(parsed))

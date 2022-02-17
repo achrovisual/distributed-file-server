@@ -33,6 +33,7 @@ try:
                         while True:
                             bytes_read = f.read(BUFFER_SIZE)
                             if not bytes_read:
+                                print("here")
                                 break
                             s.sendall(bytes_read)
                 except Exception as e:
@@ -43,6 +44,7 @@ try:
                 try:
                     msg = {"command" : data[0], "filename" : data[1]}
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+                    time.sleep(2)
                     with open(data[1], "wb") as f:
                         while True:
                             bytes_read = s.recv(BUFFER_SIZE)
