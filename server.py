@@ -21,7 +21,7 @@ class Server():
         self.upload_queue = []
         self.files_list = []
         self.get_files_list()
-        print(self.files_list)
+        # print(self.files_list)
 
         # Create server socket and bind address and port
         server_socket = socket.socket()
@@ -119,8 +119,8 @@ class Server():
                 self.files_list.append({"filename" : filename, "checksum" : checksum})
                 self.upload_queue.append({"filename" : filename, "checksum" : checksum})
 
-            print(self.files_list)
-            print(checksum)
+            # print(self.files_list)
+            # print(checksum)
 
         except Exception as e:
             print(e)
@@ -142,13 +142,13 @@ class Server():
                             message = peer.recv(self.BUFFER_SIZE).decode("utf-8")
                             if message:
                                 parsed = json.loads(message)
-                                print(str(parsed))
+                                # print(str(parsed))
                                 if parsed["command"] == "ack":
                                     self.download(peer, "127.0.0.1", file["filename"])
                                     break
 
                                 elif parsed["command"] == "nack":
-                                    print(f"[-] File already exists for {peer}.")
+                                    print("[!] File already exists in the server.")
                                     break
 
                         peer.close()
@@ -170,19 +170,24 @@ class Server():
         while True:
             message = client_socket.recv(self.BUFFER_SIZE).decode("utf-8")
             if message:
-                parsed = json.loads(message)
-                print(str(parsed))
-                if parsed["command"] == "download":
-                    filename = parsed["filename"]
-                    self.download(client_socket, address, filename)
+                try:
+                    parsed = json.loads(message)
+                    # print(str(parsed))
+                    if parsed["command"] == "download":
+                        filename = parsed["filename"]
+                        self.download(client_socket, address, filename)
 
-                elif parsed["command"] == "upload":
-                    filename = parsed["filename"]
-                    checksum = parsed["checksum"]
-                    self.upload(client_socket, address, filename, checksum)
+                    elif parsed["command"] == "upload":
+                        filename = parsed["filename"]
+                        checksum = parsed["checksum"]
+                        self.upload(client_socket, address, filename, checksum)
 
-                elif parsed["command"] == "exit":
-                    client_socket.close()
+                    elif parsed["command"] == "exit":
+                        client_socket.close()
+                except Exception as e:
+                    print(e)
+                    print(message)
+                    print("[!] Malformed message received.")
 
     def check(self, data, key, value):
         for i in data:
