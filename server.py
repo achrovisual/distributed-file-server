@@ -145,6 +145,23 @@ class Server():
             print(e)
             print("[!] An error occured while sending files list.")
 
+    def delete_file(self, client_socket, address, filename):
+        print(f"[*] Request to delete {filename} from {address} received.")
+        try:
+            print("[*] Deleting file...")
+            os.remove(self.SERVER_NAME + "/" + filename)
+
+            for file in self.files_list:
+                if(file["filename"] == filename):
+                    self.files_list.remove(file)
+                    break
+
+            print(f"[*] {filename} deleted.")
+
+        except Exception as e:
+            print(e)
+            print("[!] An error occured while deleting file.")
+
     def synchronize_servers(self):
         # print(self.upload_queue)
         try:
@@ -204,6 +221,10 @@ class Server():
 
                     elif parsed["command"] == "list":
                         self.list_files(client_socket, address)
+
+                    elif parsed["command"] == "delete":
+                        filename = parsed["filename"]
+                        self.delete_file(client_socket, address, filename)
 
                     elif parsed["command"] == "exit":
                         client_socket.close()

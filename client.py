@@ -120,6 +120,13 @@ try:
                 except Exception as e:
                     print(e)
 
+            elif args[0] == "delete":
+                try:
+                    msg = {"command" : args[0], "filename" : args[1]}
+                    s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+
+                except Exception as e:
+                    print(e)
 
             elif args[0] == "exit":
                 s.close()
