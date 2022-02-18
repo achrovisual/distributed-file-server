@@ -68,14 +68,14 @@ try:
                         message = s.recv(BUFFER_SIZE).decode("utf-8")
                         if message:
                             parsed = json.loads(message)
-                            print(str(parsed))
+                            # print(str(parsed))
                             if parsed["command"] == "ack":
                                 while bytes_read_list:
                                     s.sendall(bytes_read_list.pop(0))
                                 break
 
                             elif parsed["command"] == "nack":
-                                print(f"[-] File already exists for {s}.")
+                                print("[!] File already exists in the server.")
                                 break
 
                     s.close()
@@ -85,7 +85,7 @@ try:
 
             elif args[0] == "download":
                 try:
-                    msg = {"command" : args[0], "filename" : args[1]}
+                    msg = {"command" : args[0], "filename" : args[1], "flag" : True}
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
 
                     with open(args[1], "wb") as f:
@@ -133,7 +133,7 @@ try:
                     names = args[1].split(' ', 1)
                     msg = {"command" : args[0], "filename" : names[0], "newfilename" : names[1]}
 
-                    print(msg)
+                    # print(msg)
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
 
                 except Exception as e:
