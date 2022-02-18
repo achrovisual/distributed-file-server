@@ -1,5 +1,6 @@
-import socket, sys, os, json, time
+import socket, sys, os, json, time, hashlib
 from _thread import *
+# os.environ["PYTHONHASHSEED"] = '1234' # Not needed for local
 
 class Server():
     def __init__(self, name, port, peers):
@@ -18,6 +19,11 @@ class Server():
 
         # Initialize list for files that need to be uploaded across all servers
         self.upload_queue = []
+
+        self.files_list = []
+        self.get_files_list()
+        # print(self.files_list)
+      
         path = "./" + name
 
         if not os.path.exists(path):
@@ -28,6 +34,11 @@ class Server():
         server_socket.bind((SERVER_HOST, SERVER_PORT))
         server_socket.listen(5)
         print(f"[*] {self.SERVER_NAME} server listening as {SERVER_HOST}:{SERVER_PORT}.")
+
+        # Create server file directory
+        if not os.path.exists(self.SERVER_NAME):
+            print(f"[*] Server file directory created ({os.getcwd()}/{self.SERVER_NAME})")
+            os.mkdir(self.SERVER_NAME)
 
         # Start a new thread the connects to server peers
         start_new_thread(self.connect_to_slaves, ())
@@ -45,33 +56,36 @@ class Server():
         # Wait for 5 seconds before connecting to peers
         time.sleep(5)
 
-        # Connect to peers if not yet connected
-        if self.server_sockets == []:
-            try:
-                # Iterate through server peer ports
-                for port in self.SERVER_PEERS:
-                    # Connect to peer
-                    server_socket = socket.socket()
-                    print(f"[+] Connecting to 0.0.0.0:{port}.")
-                    server_socket.connect(("0.0.0.0", port))
-                    print(f"[+] Connected to 0.0.0.0:{port}.")
+        while True:
+            # Connect to peers if not yet connected
+            if self.server_sockets == []:
+                try:
+                    # Iterate through server peer ports
+                    for port in self.SERVER_PEERS:
+                        # Connect to peer
+                        server_socket = socket.socket()
+                        print(f"[+] Connecting to 0.0.0.0:{port}.")
+                        server_socket.connect(("0.0.0.0", port))
+                        print(f"[+] Connected to 0.0.0.0:{port}.")
 
-                    # Append server peer socket to list
-                    self.server_sockets.append(server_socket)
+                        # Append server peer socket to list
+                        self.server_sockets.append(server_socket)
 
-                # Keep synchronizing servers
+                    # Keep synchronizing servers
+                    # time.sleep(10)
+                    self.synchronize_servers()
+
+                except Exception as e:
+                    print(e)
+                    for port in self.server_sockets:
+                        port.close()
+            else:
                 self.synchronize_servers()
 
-            except Exception as e:
-                print(e)
-                for port in self.SERVER_PEERS:
-                    self.port.close()
 
     def download(self, client_socket, address, filename):
         print(f"[*] Sending {filename} to {address}.")
         try:
-            filesize = os.path.getsize(filename)
-
             with open(self.SERVER_NAME + "/" + filename, "rb") as f:
                 while True:
                     bytes_read = f.read(self.BUFFER_SIZE)
@@ -81,53 +95,115 @@ class Server():
         except:
             print("[!] File not found.")
 
-    def upload(self, client_socket, address, filename):
+    def upload(self, client_socket, address, filename, checksum=None):
         print(f"[*] Receiving {filename} from {address}.")
         try:
-            with open(self.SERVER_NAME + "/" + filename, "wb") as f:
-                while True:
-                    bytes_read = client_socket.recv(self.BUFFER_SIZE)
-                    if not bytes_read:
-                        break
-                    f.write(bytes_read)
-            self.upload_queue.append(filename)
+            if self.check(self.files_list, "checksum", checksum):
+                print("[!] File already exists in the server.")
+                print("[-] Aborting download.")
+                msg = {"command" : "nack"}
+                client_socket.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+                pass
+            else:
+                print("[*] File transfer started")
+                # data = None
+
+                msg = {"command" : "ack"}
+                client_socket.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+
+                with open(self.SERVER_NAME + "/" + filename, "wb") as f:
+                    while True:
+                        bytes_read = client_socket.recv(self.BUFFER_SIZE)
+                        # if data:
+                        #     data += bytes_read
+                        # else:
+                        #     data = bytes_read
+                        if not bytes_read:
+                            break
+                        f.write(bytes_read)
+
+                self.files_list.append({"filename" : filename, "checksum" : checksum})
+                self.upload_queue.append({"filename" : filename, "checksum" : checksum})
+
+            # print(self.files_list)
+            # print(checksum)
+
         except Exception as e:
             print(e)
             print("[!] Can't write file.")
 
     def synchronize_servers(self):
-        while True:
-            # print(self.upload_queue)
-            try:
-                if self.upload_queue:
-                    for filename in self.upload_queue:
-                        print("[*] New file was uploaded. Synchronizing servers.")
-                        for peer in self.server_sockets:
-                            filesize = os.path.getsize(filename)
-                            msg = {"command" : "upload", "filename" : filename, "filesize" : filesize}
+        # print(self.upload_queue)
+        try:
+            if self.upload_queue:
+                for file in self.upload_queue:
+                    print("[*] New file was uploaded. Synchronizing servers.")
+                    for peer in self.server_sockets:
 
-                            peer.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+                        msg = {"command" : "upload", "filename" : file["filename"], "checksum" : file["checksum"]}
 
-                            self.download(peer, "127.0.0.1", filename)
-                        self.upload_queue.remove(filename)
-            except Exception as e:
-                print(e)
-                pass
+                        peer.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
 
+                        while True:
+                            message = peer.recv(self.BUFFER_SIZE).decode("utf-8")
+                            if message:
+                                parsed = json.loads(message)
+                                # print(str(parsed))
+                                if parsed["command"] == "ack":
+                                    self.download(peer, "127.0.0.1", file["filename"])
+                                    break
+
+                                elif parsed["command"] == "nack":
+                                    print("[!] File already exists in the server.")
+                                    break
+
+                        peer.close()
+                    self.upload_queue.remove(file)
+                    print("[*] Re-establishing connection with slaves...")
+                    self.server_sockets = []
+        except Exception as e:
+            print(e)
+            pass
+
+    def get_files_list(self):
+        for root, dir, files in os.walk(self.SERVER_NAME + "/"):
+            for file in files:
+                data = open(self.SERVER_NAME + "/" + file, "rb").read()
+                self.files_list.append({"filename" : file, "checksum" : hashlib.md5(data).hexdigest()})
+                # self.upload_queue.append(file)
 
     def on_new_client(self, client_socket, address):
         while True:
-            message = client_socket.recv(self.BUFFER_SIZE)
+            message = client_socket.recv(self.BUFFER_SIZE).decode("utf-8")
+
             if message:
-                parsed = json.loads(message)
-                print(str(parsed))
-                if parsed["command"] == "download":
-                    filename = parsed["filename"]
-                    self.download(client_socket, address, filename)
+                try:
+                    parsed = json.loads(message)
+                    # print(str(parsed))
+                    if parsed["command"] == "download":
+                        filename = parsed["filename"]
+                        self.download(client_socket, address, filename)
 
-                elif parsed["command"] == "upload":
-                    filename = parsed["filename"]
-                    self.upload(client_socket, address, filename)
+                    elif parsed["command"] == "upload":
+                        filename = parsed["filename"]
+                        checksum = parsed["checksum"]
+                        self.upload(client_socket, address, filename, checksum)
 
-                elif parsed["command"] == "exit":
-                    client_socket.close()
+                    elif parsed["command"] == "exit":
+                        client_socket.close()
+                except Exception as e:
+                    print(e)
+                    print(message)
+                    print("[!] Malformed message received.")
+
+    def check(self, data, key, value):
+        for i in data:
+            try:
+                # print(i[key])
+                # print(value)
+                if(i[key]==value):
+                    # print('pass')
+                    return True
+            except:
+                pass
+        return False
