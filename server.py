@@ -23,7 +23,7 @@ class Server():
         self.files_list = []
         self.get_files_list()
         # print(self.files_list)
-      
+
         path = "./" + name
 
         if not os.path.exists(path):
@@ -84,7 +84,7 @@ class Server():
 
 
     def download(self, client_socket, address, filename):
-        print(f"[*] Sending {filename} to {address}.")
+        print(f"[*] Request to download {filename} from {address} received.")
         try:
             with open(self.SERVER_NAME + "/" + filename, "rb") as f:
                 while True:
@@ -96,7 +96,7 @@ class Server():
             print("[!] File not found.")
 
     def upload(self, client_socket, address, filename, checksum=None):
-        print(f"[*] Receiving {filename} from {address}.")
+        print(f"[*] Request to upload {filename} from {address} received.")
         try:
             if self.check(self.files_list, "checksum", checksum):
                 print("[!] File already exists in the server.")
@@ -131,6 +131,19 @@ class Server():
         except Exception as e:
             print(e)
             print("[!] Can't write file.")
+
+    def list_files(self, client_socket, address):
+        print(f"[*] Request to get files list from {address} received.")
+        try:
+            print("[*] Sending files list.")
+
+            msg = {"files" : self.files_list}
+
+            client_socket.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+
+        except Exception as e:
+            print(e)
+            print("[!] An error occured while sending files list.")
 
     def synchronize_servers(self):
         # print(self.upload_queue)
@@ -188,6 +201,9 @@ class Server():
                         filename = parsed["filename"]
                         checksum = parsed["checksum"]
                         self.upload(client_socket, address, filename, checksum)
+
+                    elif parsed["command"] == "list":
+                        self.list_files(client_socket, address)
 
                     elif parsed["command"] == "exit":
                         client_socket.close()

@@ -1,6 +1,17 @@
 import socket, sys, os, json, time, hashlib
 # os.environ["PYTHONHASHSEED"] = '1234' # Not needed for local
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 BUFFER_SIZE = 4096
 
 host = "0.0.0.0"
@@ -52,7 +63,7 @@ try:
 
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
                     time.sleep(2)
-                    
+
                     while True:
                         message = s.recv(BUFFER_SIZE).decode("utf-8")
                         if message:
@@ -76,13 +87,36 @@ try:
                 try:
                     msg = {"command" : args[0], "filename" : args[1]}
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
-                    
+
                     with open(args[1], "wb") as f:
                         while True:
                             bytes_read = s.recv(BUFFER_SIZE)
                             if not bytes_read:
                                 break
                             f.write(bytes_read)
+                except Exception as e:
+                    print(e)
+
+            elif args[0] == "list":
+                try:
+                    msg = {"command" : args[0]}
+                    s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+
+                    message = None
+
+                    while True:
+                        message = s.recv(BUFFER_SIZE).decode("utf-8")
+
+                        if message:
+                            break
+
+                    parsed = json.loads(message)
+                    files_list = parsed["files"]
+                    # print(files_list)
+
+                    for file in files_list:
+                        print(f'{bcolors.OKGREEN}{file["filename"]}{bcolors.ENDC}')
+
                 except Exception as e:
                     print(e)
 
