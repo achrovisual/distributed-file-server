@@ -162,6 +162,23 @@ class Server():
             print(e)
             print("[!] An error occured while deleting file.")
 
+    def rename_file(self, client_socket, address, filename, newfilename):
+        print(f"[*] Request to rename {filename} to {newfilename} from {address} received.")
+        try:
+            print("[*] Renaming file...")
+            os.rename(self.SERVER_NAME + "/" + filename, self.SERVER_NAME + "/" + newfilename)
+
+            for file in self.files_list:
+                if(file["filename"] == filename):
+                    file["filename"] = newfilename
+                    break
+
+            print(f"[*] {filename} renamed to {newfilename}.")
+
+        except Exception as e:
+            print(e)
+            print("[!] An error occured while renaming file.")
+
     def synchronize_servers(self):
         # print(self.upload_queue)
         try:
@@ -226,8 +243,14 @@ class Server():
                         filename = parsed["filename"]
                         self.delete_file(client_socket, address, filename)
 
+                    elif parsed["command"] == "rename":
+                        filename = parsed["filename"]
+                        newfilename = parsed["newfilename"]
+                        self.rename_file(client_socket, address, filename, newfilename)
+
                     elif parsed["command"] == "exit":
                         client_socket.close()
+
                 except Exception as e:
                     print(e)
                     print(message)

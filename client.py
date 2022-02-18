@@ -128,6 +128,17 @@ try:
                 except Exception as e:
                     print(e)
 
+            elif args[0] == "rename":
+                try:
+                    names = args[1].split(' ', 1)
+                    msg = {"command" : args[0], "filename" : names[0], "newfilename" : names[1]}
+
+                    print(msg)
+                    s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+
+                except Exception as e:
+                    print(e)
+
             elif args[0] == "exit":
                 s.close()
                 sys.exit(0)
