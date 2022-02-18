@@ -24,11 +24,6 @@ class Server():
         self.get_files_list()
         # print(self.files_list)
 
-        path = "./" + name
-
-        if not os.path.exists(path):
-            os.mkdir(path)
-
         # Create server socket and bind address and port
         server_socket = socket.socket()
         server_socket.bind((SERVER_HOST, SERVER_PORT))
@@ -83,7 +78,7 @@ class Server():
                 self.synchronize_servers()
 
 
-    def download(self, client_socket, address, filename):
+    def download(self, client_socket, address, filename, flag=False):
         print(f"[*] Request to download {filename} from {address} received.")
         try:
             with open(self.SERVER_NAME + "/" + filename, "rb") as f:
@@ -92,6 +87,10 @@ class Server():
                     if not bytes_read:
                         break
                     client_socket.sendall(bytes_read)
+
+            if flag:
+                client_socket.close()
+
         except:
             print("[!] File not found.")
 
@@ -203,7 +202,6 @@ class Server():
                                 elif parsed["command"] == "nack":
                                     print("[!] File already exists in the server.")
                                     break
-
                         peer.close()
                     self.upload_queue.remove(file)
                     print("[*] Re-establishing connection with slaves...")
@@ -229,7 +227,8 @@ class Server():
                     # print(str(parsed))
                     if parsed["command"] == "download":
                         filename = parsed["filename"]
-                        self.download(client_socket, address, filename)
+                        flag = parsed["flag"]
+                        self.download(client_socket, address, filename, flag)
 
                     elif parsed["command"] == "upload":
                         filename = parsed["filename"]
