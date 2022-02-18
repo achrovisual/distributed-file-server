@@ -52,7 +52,7 @@ try:
 
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
                     time.sleep(2)
-
+                    
                     while True:
                         message = s.recv(BUFFER_SIZE).decode("utf-8")
                         if message:
@@ -76,6 +76,7 @@ try:
                 try:
                     msg = {"command" : args[0], "filename" : args[1]}
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
+                    
                     with open(args[1], "wb") as f:
                         while True:
                             bytes_read = s.recv(BUFFER_SIZE)
