@@ -15,7 +15,7 @@ class bcolors:
 BUFFER_SIZE = 4096
 
 host = "0.0.0.0"
-port = 5001
+port = 5003
 
 try:
     #s = socket.socket()
@@ -59,7 +59,7 @@ try:
                                 break
                     checksum = hashlib.md5(bytes_read).hexdigest()
 
-                    msg = {"command" : args[0], "filename" : args[1], "checksum" : checksum}
+                    msg = {"command" : args[0], "filename" : args[1], "checksum" : checksum, "flag" : True}
 
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
                     time.sleep(2)
@@ -122,7 +122,7 @@ try:
 
             elif args[0] == "delete":
                 try:
-                    msg = {"command" : args[0], "filename" : args[1]}
+                    msg = {"command" : args[0], "filename" : args[1], "flag" : True}
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
 
                 except Exception as e:
@@ -131,7 +131,7 @@ try:
             elif args[0] == "rename":
                 try:
                     names = args[1].split(' ', 1)
-                    msg = {"command" : args[0], "filename" : names[0], "newfilename" : names[1]}
+                    msg = {"command" : args[0], "filename" : names[0], "newfilename" : names[1], "flag" : True}
 
                     # print(msg)
                     s.sendall(bytes(json.dumps(msg), encoding = "utf-8"))
