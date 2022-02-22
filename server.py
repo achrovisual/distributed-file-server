@@ -81,7 +81,7 @@ class Server():
                 self.synchronize_servers()
 
 
-    def download(self, client_socket, address, filename):
+    def download(self, client_socket, address, filename, flag=False):
         print(f"[*] Request to download {filename} from {address} received.")
         try:
             with open(self.SERVER_NAME + "/" + filename, "rb") as f:
@@ -238,7 +238,7 @@ class Server():
                                 parsed = json.loads(message)
                                 # print(str(parsed))
                                 if parsed["command"] == "ack":
-                                    self.download(peer, "127.0.0.1", file["filename"], False)
+                                    self.download(peer, "127.0.0.1", file["filename"])
                                     break
 
                                 elif parsed["command"] == "nack":
@@ -329,7 +329,7 @@ class Server():
                     # print(str(parsed))
                     if parsed["command"] == "download":
                         filename = parsed["filename"]
-                        self.download(client_socket, address, filename)
+                        self.download(client_socket, address, filename, flag)
 
                     elif parsed["command"] == "upload":
                         filename = parsed["filename"]
